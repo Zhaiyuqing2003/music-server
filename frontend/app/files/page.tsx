@@ -1,49 +1,95 @@
 'use client';
 import { fetchFiles, FileInfo } from "./action";
 import { useState, useLayoutEffect } from "react";
+import DirSVG from "./dirsvg";
 
 const path = '/home/yuqing/External/Archive/TOUHOU_MUSIC/'
 
 export default function Page() {
-    const [files, setFiles] = useState<FileInfo[]>([]);
+  const [files, setFiles] = useState<FileInfo[]>([]);
+  const [directory, setDirectory] = useState<Array<string>>(path.split('/').slice(1));
 
-    useLayoutEffect(() => {
-        fetchFiles(path).then((data) => {
-            setFiles(data);
-        }).catch((error) => {
-            console.error("Error fetching files:", error);
-            setFiles([]);
-        })
-    }, [])
+  useLayoutEffect(() => {
+    fetchFiles(path).then((data) => {
+      setFiles(data);
+    }).catch((error) => {
+      console.error("Error fetching files:", error);
+      setFiles([]);
+    })
+  }, [])
 
-    const openFile = (file: FileInfo) => {
-        fetchFiles(file.path).then((data) => {
-            setFiles(data);
-        }).catch((error) => {
-            console.error("Error opening file:", error);
-        });
+  const openFile = (file: FileInfo) => {
+    fetchFiles(file.path).then((data) => {
+      setFiles(data);
+      setDirectory(file.path.split("/").slice(1))
+    }).catch((error) => {
+      console.error("Error opening file:", error);
+    });
+  }
+
+  const openDirectory = (dirprop: string) => {
+    let dir = ""
+    for (let i in directory) {
+      if (directory[i] != dirprop) { dir += "/" + directory[i] }
+      else {
+        dir += "/" + directory[i];
+        break;
+      }
     }
+    fetchFiles(dir).then((data) => {
+      setFiles(data);
+      setDirectory(dir.split("/"))
+    }).catch((error) => {
+      console.error("Error opening file:", error);
+    });
+  }
 
-    const downloadFile = (file: FileInfo) => {
-        const url = `/api/download/${encodeURIComponent(file.path)}`;
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = file.name;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-    }
+  const downloadFile = (file: FileInfo) => {
+    const url = `/api/download/${encodeURIComponent(file.path)}`;
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = file.name;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
 
-    return (<div>
-        { files.map((file, index) => <div key={index} className="p-2">
-            <div className="flex gap-2 justify-between">
-                <span>{ file.name }</span>
-                { file.isDirectory 
-                    ? <button onClick = {() => openFile(file)}> open </button>
-                    : <button onClick = {() => downloadFile(file)}> download </button>
+
+  return (
+    <div>
+      <div className="navbar ml-12">
+        <div className="breadcrumbs text-sm"><ul>
+          {directory.map((dir) =>
+            <li id={dir} key={dir}>
+              <a onClick={() => openDirectory(dir)}>
+                <DirSVG></DirSVG>
+                {dir}
+              </a>
+            </li>
+          )}
+        </ul></div>
+      </div>
+      <ul className="list bg-base-100 rounded-box shadow-md mx-12 p-4">
+        {files.map((file, index) =>
+          <li className="list-row">
+            <div className="w-0 h-0"></div>
+            <div key={index} className="flex gap-2 justify-between">
+              <div>
+                <span>{file.name}</span>
+                {file.name.split('.').pop() == 'jpg' || file.name.split('.').pop() == 'png' ?
+                (<div className="badge badge-sm badge-soft badge-success mx-2 ">Image</div>)
+                : file.name.split('.').pop() == 'flac' || file.name.split('.').pop() == 'wav' ?
+                (<div className="badge badge-sm badge-soft badge-primary mx-2 ">Audio</div>) : <></>
                 }
+              </div>
+              {file.isDirectory
+                ? <button className="btn btn-xs btn-outline " onClick={() => openFile(file)}> open </button>
+                : <button className="btn btn-xs btn-outline " onClick={() => downloadFile(file)}> download </button>
+              }
             </div>
-        </div>)}
-
-    </div>)
+          </li>
+        )}
+      </ul>
+    </div>
+  )
 }
